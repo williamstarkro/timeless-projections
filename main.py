@@ -1,7 +1,8 @@
 import pandas
 import numpy
 import random
-from scitools.StringFunction import StringFunction
+from pathlib import Path
+from math import *
 
 class Projection:
     def __init__(self, investment, percentage, buyinValue, txtName):
@@ -14,8 +15,7 @@ class Projection:
             self.projectionSnapshot()
         else:
             fieldnames = ['Users', 'Price', 'Economy', 'TVTNum', 'InvestorTVT', 'Investor%', 'InvestorSell', 'InvestorReturn', 'Investor%Return']
-            init = []
-            init.append([10000, 0.007, 270000000, 38000000000, 0, 0, 0, 0, -1])
+            init = [[10000, 0.007, 270000000, 38000000000, 0, 0, 0, 0, -1]]
             self.df = pandas.DataFrame(init, columns=fieldnames)
             self.df.to_csv(txtName)
 
@@ -24,33 +24,40 @@ class Projection:
 
 
     def add30Days(self, dailyEconomyFluctuation, growthRate):
-        userList = [self.df.tail(1)['Users']]
+        startingInfo = self.df.values[-1].tolist()
+        userList = [startingInfo[1]]
+        print(userList[0])
         dailyList = []
         tokens = self.df.tail(1)['TVTNum']
         if growthRate == 0:
             for x in range(0,30):
                 users = userList[-1]
-                div = random.randint(users*975/1000,users)
+                low = int(users*975/1000)
+                div = random.randint(low,users)
                 exp = random.randint(1,3)
                 sign = random.randint(1,100)
                 if sign < 15:
                     sign = -1
                 else:
                     sign = 1
-                newUsers = users + sign*(users/div)^exp
+                newUsers = users + sign*(int(users * (((users/div)**exp)-1)))
                 userList.append(newUsers)
         else:
-            f = StringFunction(growthRate)
+            code = """
+            ef g(x):
+                return %s
+            """ % growthRate
+
             for x in range(0,30):
                 users = userList[-1]
-                newUsers = f(users)
+                newUsers = exec(code)
                 userList.append(newUsers)
-
+        print(userList)
+        '''
         for x in range(0, len(userList)):
             if x == 0:
                 continue
             currentInfo = dailyList[-1]
-            users = currentInfo['Users']
             investorTokens = dailyList[-1][3]
             if userList[x] < 100000:
                     newEcon = userList[x] * (27000 * random.randint(-1*dailyEconomyFluctuation,dailyEconomyFluctuation))/110
@@ -64,4 +71,4 @@ class Projection:
                 else:
                     newInvestorSelloff = (investorTokens - newInvestorTVT)*
                 dailyList.append([userList[x], newPrice, newEcon, newInvestorTVT, newInvestor%, ])
-
+        '''
