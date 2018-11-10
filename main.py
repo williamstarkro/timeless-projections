@@ -10,43 +10,61 @@ class Projection:
         self.investment = investment
         self.percentage = percentage
         self.txtName = txtName
-        self.fieldNames = ['Users', 'Price', 'Economy', 'TVTNum', 'InvestorTVT', 'InvestorPerc', 'InvestorSell', 'InvestorReturn', 'InvestorPercReturn']
+        self.fieldNames = ['Users', 'Price', 'Economy', 'TVTNum', 'InvestorTVT', 'InvestorPerc', 'InvestorSell', 'InvestorReturn', 'InvestorPercReturn', 'Bond']
+        self.bondTotal = 0
         txtFile = Path(txtName)
         if txtFile.is_file():
             self.projectionSnapshot()
         else:
-            init = [[10000, 0.007, 270000000, 38000000000, 0, 0, 0, 0, -1]]
+            init = [[10000, 0.007, 270000000, 38000000000, 0, 0, 0, 0, -1, 0]]
             self.df = pandas.DataFrame(init, columns=self.fieldNames)
             self.df.to_csv(txtName, index=False)
 
     def projectionSnapshot(self):
         self.df = pandas.read_csv(self.txtName)
 
+    def resetFile(self):
+        open(self.txtName, 'w').close()
+        init = [[10000, 0.007, 270000000, 38000000000, 0, 0, 0, 0, -1, 0]]
+        self.df = pandas.DataFrame(init, columns=self.fieldNames)
+        self.df.to_csv(self.txtName, index=False)
+
+    def addSections(self, dailyEconomyFluctuation, growthRate, numberOfIncrements):
+        for x in range(0,numberOfIncrements):
+            self.add30Days(dailyEconomyFluctuation, growthRate)
 
     def add30Days(self, dailyEconomyFluctuation, growthRate):
         startingInfo = self.df.values[-1].tolist()
         totalSelloff = self.df['InvestorSell'].sum()
-        print(startingInfo)
         userList = [startingInfo[0]]
         dailyList = [startingInfo]
         tokens = startingInfo[3]
         if growthRate == 0:
             for z in range(0,30):
                 users = int(userList[-1])
+                print(users)
                 if users < 100000:
                     low = int(users*975/1000)
-                elif users < 1000000 & users > 100000:
+                elif users < 1000000 and users > 100000:
                     low = int(users*980/1000)
-                elif users > 1000000:
+                elif users > 1000000 and users < 10000000:
                     low = int(users*985/1000)
+                elif users > 10000000:
+                    print('HI')
+                    low = int(users*995/1000)
                 div = random.randint(low,users)
                 exp = random.randint(1,3)
                 sign = random.randint(1,100)
-                if sign < 15:
+                print(sign)
+                if sign < 15 and users < 1000000:
+                    sign = -1
+                elif sign < 50 and users > 1000000:
                     sign = -1
                 else:
                     sign = 1
+                print(sign)
                 newUsers = users + sign*(int(users * (((users/div)**exp)-1)))
+                #print(newUsers)
                 userList.append(newUsers)
         else:
             for z in range(0,30):
@@ -55,11 +73,15 @@ class Projection:
                 userList.append(fn(users))
 
         newTokens = tokens
+        newBond = startingInfo[9]
         for x in range(0, len(userList)):
             if x == 0:
                 continue
             currentInfo = dailyList[-1]
             investorTokens = currentInfo[4]
+
+            # 27000/26000 is heuristic at this point
+            # This is where UserValue.py will come into play
             if userList[x] < 100000:
                 newEcon = (userList[x] * 27000) + (random.randint(-1*dailyEconomyFluctuation-5,dailyEconomyFluctuation)*(userList[x] * 27000))/100
             else:
@@ -75,15 +97,24 @@ class Projection:
             totalSelloff += newInvestorSelloff
             if x == 30:
                 newTokens = int(newEcon/0.007)
-                newInvestorTVT += int((self.percentage* (newTokens-tokens))/100)
-                newInvestorPerc = newInvestorTVT/newTokens
                 newPrice = 0.007
+                if newTokens > tokens:
+                    nonBondTokens = (newTokens-tokens) - newBond 
+                    if nonBondTokens < 0:
+                        newBond = -1 * nonBondTokens
+                        nonBondTokens = 0
+                    else:
+                        newBond = 0
+                    newInvestorTVT += int((self.percentage * nonBondTokens)/100)
+                    newInvestorPerc = newInvestorTVT/newTokens
+                else:
+                    newBond += (tokens - newTokens)
+                
             newInvestorReturn = totalSelloff + newInvestorTVT * newPrice
-            newInvestorPercReturn = newInvestorReturn/self.investment
-            dailyList.append([userList[x], newPrice, newEcon, newTokens, newInvestorTVT, newInvestorPerc, newInvestorSelloff, newInvestorReturn, newInvestorPercReturn])
+            newInvestorPercReturn = (newInvestorReturn-self.investment)/self.investment
+            dailyList.append([userList[x], newPrice, newEcon, newTokens, newInvestorTVT, newInvestorPerc, newInvestorSelloff, newInvestorReturn, newInvestorPercReturn, newBond])
 
         del dailyList[0]
         df2 = pandas.DataFrame(dailyList, columns=self.fieldNames)
         self.df = self.df.append(df2, ignore_index=True, sort=False)
-        print(self.df)
         self.df.to_csv(self.txtName, index=False)
