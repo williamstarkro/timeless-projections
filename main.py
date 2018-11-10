@@ -1,6 +1,7 @@
 import pandas
-from pathlib import Path
 import numpy
+import random
+from scitools.StringFunction import StringFunction
 
 class Projection:
     def __init__(self, investment, percentage, buyinValue, txtName):
@@ -23,5 +24,44 @@ class Projection:
 
 
     def add30Days(self, dailyEconomyFluctuation, growthRate):
-        lst = []
-        
+        userList = [self.df.tail(1)['Users']]
+        dailyList = []
+        tokens = self.df.tail(1)['TVTNum']
+        if growthRate == 0:
+            for x in range(0,30):
+                users = userList[-1]
+                div = random.randint(users*975/1000,users)
+                exp = random.randint(1,3)
+                sign = random.randint(1,100)
+                if sign < 15:
+                    sign = -1
+                else:
+                    sign = 1
+                newUsers = users + sign*(users/div)^exp
+                userList.append(newUsers)
+        else:
+            f = StringFunction(growthRate)
+            for x in range(0,30):
+                users = userList[-1]
+                newUsers = f(users)
+                userList.append(newUsers)
+
+        for x in range(0, len(userList)):
+            if x == 0:
+                continue
+            currentInfo = dailyList[-1]
+            users = currentInfo['Users']
+            investorTokens = dailyList[-1][3]
+            if userList[x] < 100000:
+                    newEcon = userList[x] * (27000 * random.randint(-1*dailyEconomyFluctuation,dailyEconomyFluctuation))/110
+                elif x < 1000000:
+                    newEcon = userList[x] * (26000 * random.randint(-1*dailyEconomyFluctuation,dailyEconomyFluctuation))/115
+                newPrice = newEcon/tokens
+                newInvestorTVT = investorTokens*99/100
+                newInvestor% = currentInfo['Investor%']*99/100
+                if investorTokens < newInvestorTVT:
+                    newInvestorSelloff = 0
+                else:
+                    newInvestorSelloff = (investorTokens - newInvestorTVT)*
+                dailyList.append([userList[x], newPrice, newEcon, newInvestorTVT, newInvestor%, ])
+
