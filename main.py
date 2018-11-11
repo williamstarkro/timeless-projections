@@ -32,6 +32,21 @@ class Projection:
     def addSections(self, dailyEconomyFluctuation, growthRate, numberOfIncrements):
         for x in range(0,numberOfIncrements):
             self.add30Days(dailyEconomyFluctuation, growthRate)
+    
+    def deleteSections(self, numberOfIncrements):
+        for x in range(0,numberOfIncrements):
+            if len(self.df.index) > 30:
+                self.df = self.df[:-30]
+
+                openFile = open(self.txtName)
+                lines = openFile.readlines()
+                lines = lines[:-30]
+                openFile.close()
+                open(self.txtName, 'w').close()
+
+                w = open(self.txtName,'w')
+                w.writelines(lines)
+                w.close()
 
     def add30Days(self, dailyEconomyFluctuation, growthRate):
         startingInfo = self.df.values[-1].tolist()
@@ -42,7 +57,6 @@ class Projection:
         if growthRate == 0:
             for z in range(0,30):
                 users = int(userList[-1])
-                print(users)
                 if users < 100000:
                     low = int(users*975/1000)
                 elif users < 1000000 and users > 100000:
@@ -50,21 +64,17 @@ class Projection:
                 elif users > 1000000 and users < 10000000:
                     low = int(users*985/1000)
                 elif users > 10000000:
-                    print('HI')
                     low = int(users*995/1000)
                 div = random.randint(low,users)
                 exp = random.randint(1,3)
                 sign = random.randint(1,100)
-                print(sign)
                 if sign < 15 and users < 1000000:
                     sign = -1
                 elif sign < 50 and users > 1000000:
                     sign = -1
                 else:
                     sign = 1
-                print(sign)
                 newUsers = users + sign*(int(users * (((users/div)**exp)-1)))
-                #print(newUsers)
                 userList.append(newUsers)
         else:
             for z in range(0,30):
