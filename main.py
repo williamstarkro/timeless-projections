@@ -5,15 +5,38 @@ from pathlib import Path
 from math import *
 from Equation import Expression
 
+"""
+Spin up a Projection instance, letting you play around with investing into TVT Economy
+We track the following information for every day:
+    - Users (Service Providers)
+    - Price of 1 TVT
+    - Overall Economy Value
+    - Number of TVT in existence
+    - TVT holdings for the investor
+    - % Ownership of TVT for the investor (% of all TVT in existence)
+    - Daily selloff of TVT from the investor's holdings
+    - Return (in terms of $) for the investor
+    - % Return (in terms of initial investment) for the investor
+    - Number of outstanding bonds
+"""
 class Projection:
-    def __init__(self, investment, percentage, txtName):
-        self.investment = investment
-        self.percentage = percentage
-        self.investorReturn = 0
-        self.txtName = txtName
-        self.fieldNames = ['Users', 'Price', 'Economy', 'TVTNum', 'InvestorTVT', 'InvestorPerc', 'InvestorSell', 'InvestorReturn', 'InvestorPercReturn', 'Bond']
+    # Initializer for a Projection object
+    # @Param _investment - Initial investment of capital to have TVT Share ownership
+    # @Param _percentage - Initial percent ownership of TVT Share
+    # @Param _txtName - Name of .txt file you want the data stored
+    def __init__(self, _investment, _percentage, _txtName):
+        # Store global variables
+        self.investment = _investment
+        self.percentage = _percentage
+        self.investorShareReturn = 0
+        self.txtName = _txtName
+        self.fieldNames = ['Users', 'Price', 'Economy', 'TVTNum', 'InvestorTVT', 
+            'InvestorPerc', 'InvestorSell', 'InvestorReturn', 'InvestorPercReturn', 'Bond']
         self.bondTotal = 0
-        txtFile = Path(txtName)
+
+        # Check if the txt file exists, if it does, we'll pull in the existing data
+        # If it does not, we initialize the file and place in day 0 information
+        txtFile = Path(self.txtName)
         if txtFile.is_file():
             self.projectionSnapshot()
         else:
@@ -21,21 +44,31 @@ class Projection:
             self.df = pandas.DataFrame(init, columns=self.fieldNames)
             self.df.to_csv(txtName, index=False)
 
+    # Gather a snapshot of our txt file info and save it as a DataFrame
     def projectionSnapshot(self):
         self.df = pandas.read_csv(self.txtName)
 
+    # Lets you restart the file and DataFrame from scratch
     def resetFile(self):
         open(self.txtName, 'w').close()
         init = [[10000, 0.007, 270000000, 38000000000, 0, 0, 0, 0, -1, 0]]
         self.df = pandas.DataFrame(init, columns=self.fieldNames)
         self.df.to_csv(self.txtName, index=False)
 
-    def addSections(self, dailyEconomyFluctuation, growthRate, numberOfIncrements):
-        for x in range(0,numberOfIncrements):
-            self.add30Days(dailyEconomyFluctuation, growthRate)
+    # Add an n number of 30 day increments to our data
+    # @Param _dailyEconomicFluctuation - Factor of how much the economy can move from the standard growth
+    # @Param _growthRate - Increment/Decrement function of Users within the 30 days
+    # Can be expressed either with your own math function (expressed as function of x), 
+    # or use the built in method (input 0 is built in)
+    # @Param _numberOfIncrements - Number of 30 day iterations 
+    def addSections(self, _dailyEconomyFluctuation, _growthRate, _numberOfIncrements):
+        for x in range(0, _numberOfIncrements):
+            self.add30Days(_dailyEconomyFluctuation, _growthRate)
     
-    def deleteSections(self, numberOfIncrements):
-        for x in range(0,numberOfIncrements):
+    # Lets you delete an n number of 30 day increments from the data
+    # @Param _numberOfIncrements - Number of 30 day increments you want to delete
+    def deleteSections(self, _numberOfIncrements):
+        for x in range(0, _numberOfIncrements):
             if len(self.df.index) > 30:
                 self.df = self.df[:-30]
 
@@ -49,13 +82,24 @@ class Projection:
                 w.writelines(lines)
                 w.close()
 
-    def changeShareOwnership(self, percentChange, investmentChange):
-        if self.percentage + percentChange > 0 and self.percentage + percentChange < 100:
-            self.percentage += percentChange
-            if percentChange < 0:
-                self.investorReturn += investmentChange
+    # Allows you to change the percent ownership of shares you have
+    # @Param _percentChange - Addition/subtraction from your total TVT ownership percentage
+    # Expressed as a value (-100 to 100). 
+    # @Param _investmentChange - Money either payed or recieved for the change in % ownership
+    def changeShareOwnership(self, _percentChange, _investmentChange):
+        # check that we are staying within the bounds of allowable percentages
+        if self.percentage + _percentChange > 0 and self.percentage + _percentChange < 100:
+            self.percentage += _percentChange
+            # Decrease in % ownership is assumed to mean you sold it for money
+            # This money goes to global investorShareReturn, which is an additive factor on investorReturn
+            # Note that we do not decrease global investment variable, may need to be changed
+            if _percentChange < 0:
+                self.investorShareReturn += _investmentChange
+            # Increase in % ownership is assumed to cost money
+            # This money goes to global investment variable as an increase
+            # Again, which variables are affected may need to be changed
             else:
-                self.investment += investmentChange
+                self.investment += _investmentChange
 
 
     def add30Days(self, dailyEconomyFluctuation, growthRate):
@@ -130,8 +174,7 @@ class Projection:
                 else:
                     newBond += (tokens - newTokens)
                 
-            newInvestorReturn = totalSelloff + newInvestorTVT * newPrice
-            self.investorReturn = newInvestorReturn
+            newInvestorReturn = (totalSelloff + newInvestorTVT * newPrice) + self.investorShareReturn
             newInvestorPercReturn = (newInvestorReturn-self.investment)/self.investment
             dailyList.append([userList[x], newPrice, newEcon, newTokens, newInvestorTVT, newInvestorPerc, newInvestorSelloff, newInvestorReturn, newInvestorPercReturn, newBond])
 
