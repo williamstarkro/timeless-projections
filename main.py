@@ -23,7 +23,7 @@ class Projection:
     # Initializer for a Projection object
     # @Param _investment - Initial investment of capital to have TVT Share ownership
     # @Param _percentage - Initial percent ownership of TVT Share
-    # @Param _txtName - Name of .txt file you want the data stored
+    # @Param _txtName - Name of .txt file you want the data stored (input as string)
     def __init__(self, _investment, _percentage, _txtName):
         # Store global variables
         self.investment = _investment
@@ -58,7 +58,7 @@ class Projection:
     # Add an n number of 30 day increments to our data
     # @Param _dailyEconomicFluctuation - Factor of how much the economy can move from the standard growth
     # @Param _growthRate - Increment/Decrement function of Users within the 30 days
-    # Can be expressed either with your own math function (expressed as function of x), 
+    # Can be expressed either with your own math function (expressed as function of x in string format), 
     # or use the built in method (input 0 is built in)
     # @Param _numberOfIncrements - Number of 30 day iterations 
     def addSections(self, _dailyEconomyFluctuation, _growthRate, _numberOfIncrements):
@@ -101,16 +101,31 @@ class Projection:
             else:
                 self.investment += _investmentChange
 
-
-    def add30Days(self, dailyEconomyFluctuation, growthRate):
+    # Function to calculate daily user growth, then all other data points from user growth
+    # @Param _dailyEconomicFluctuation - Factor of how much the economy can move from the standard growth
+    # @Param _growthRate - Daily user growth rate
+    def add30Days(self, _dailyEconomyFluctuation, _growthRate):
+        # Pull in the last DataFrame row. Used as starting point for calculations
         startingInfo = self.df.values[-1].tolist()
+        # Get the sum for all sell-offs of TVT, used in investorReturns variable
         totalSelloff = self.df['InvestorSell'].sum()
+        # Array of Users for every day
         userList = [startingInfo[0]]
+        # Array of all data points for every day
         dailyList = [startingInfo]
-        tokens = startingInfo[3]
-        if growthRate == 0:
+
+        # Built in function for increasing growth rate. Roughly logarithmic curve
+        if _growthRate == 0:
             for z in range(0,30):
+                # Get the last userCount in the array
                 users = int(userList[-1])
+                # Heuristic model of user growth, logarithmic. Does the following:
+                #   - Finds a random number between low and "users" variable - div
+                #   low = a percentage of "users" that gets closer to "users" value as "users" increases
+                #   - Assigns a random exponent between 1 and 3 - exp
+                #   - Computes a sign (-1 or 1) based on a random number between 1 and 100 - sign
+                #   - Calculates newUsers by adding previous "users" to 
+                #   sign * "users" * (1 - (users/div))^exp)
                 if users < 100000:
                     low = int(users*975/1000)
                 elif users < 1000000 and users > 100000:
@@ -119,51 +134,74 @@ class Projection:
                     low = int(users*985/1000)
                 elif users > 10000000:
                     low = int(users*995/1000)
+
                 div = random.randint(low,users)
                 exp = random.randint(1,3)
                 sign = random.randint(1,100)
+
                 if sign < 15 and users < 1000000:
                     sign = -1
                 elif sign < 45 and users > 1000000:
                     sign = -1
                 else:
                     sign = 1
+
                 newUsers = users + sign*(int(users * (((users/div)**exp)-1)))
                 userList.append(newUsers)
         else:
+            # Calculation if you enter your own growth rate. 
+            # Always should be in terms of x, inputted as a string
+            fn = Expression(_growthRate,["x"])
             for z in range(0,30):
                 users = userList[-1]
-                fn = Expression(growthRate,["x"])
                 userList.append(fn(users))
 
-        newTokens = tokens
+        # Calculation for all other data points per day
+        # First pull current number of bonds and tokens
+        prevTokens = startingInfo[3]
+        newTokens = startingInfo[3]
         newBond = startingInfo[9]
         for x in range(0, len(userList)):
+            # Skip over the first value, this was from the previous month
             if x == 0:
                 continue
+            # Get the previous day's information
             currentInfo = dailyList[-1]
             investorTokens = currentInfo[4]
+            investorPerc = currentInfo[5]
 
+            # Formula for calculating overall economy from daily users
+            # Use the daily fluctuation to allow for variability in pricing
             # 27000/26000 is heuristic at this point
             # This is where UserValue.py will come into play
             if userList[x] < 100000:
-                newEcon = (userList[x] * 27000) + (random.randint(-1*dailyEconomyFluctuation-5,dailyEconomyFluctuation)*(userList[x] * 27000))/100
+                newEcon = (userList[x] * 27000) + (random.randint(-1* _dailyEconomyFluctuation-5, _dailyEconomyFluctuation)*(userList[x] * 27000))/100
             else:
-                newEcon = (userList[x] * 26000) + (random.randint(-1*dailyEconomyFluctuation-7,dailyEconomyFluctuation)*(userList[x] * 27000))/100
-            newPrice = newEcon/tokens
+                newEcon = (userList[x] * 26000) + (random.randint(-1* _dailyEconomyFluctuation-7, _dailyEconomyFluctuation)*(userList[x] * 27000))/100
+            
+            # TVT price is simply newEcon divided by total TVT outstanding
+            newPrice = newEcon/prevTokens
+
+            # Calculate investor TVT divestiture
             # Currently a reduction of 1% a day, this can be tuned by MV = PQ
             # Where PQ = Total Economy and Velocity is known
             # We now then can estimate how much free flowing TVT needs to exist
             # If there currently is a lot held by our "banks", they will have to release
             newInvestorTVT = investorTokens*99/100
-            newInvestorPerc = currentInfo[5]*99/100
+            newInvestorPerc = investorPerc*99/100
+            # Calculate value of the sell off (value * 0.95 to account for transaction costs/market movement)
             newInvestorSelloff = (investorTokens - newInvestorTVT)*newPrice*0.95
             totalSelloff += newInvestorSelloff
+
+            # Monthly recalculation for # of TVT, so that each TVT = 0.007
             if x == 30:
                 newTokens = int(newEcon/0.007)
                 newPrice = 0.007
-                if newTokens > tokens:
-                    nonBondTokens = (newTokens-tokens) - newBond 
+                # If # of TVT increases, this means no Bonds need to be created
+                # First, all outstanding bonds need to be payed off,
+                # Then any new TVT left over is spread out to TVT shareholders
+                if newTokens > prevTokens:
+                    nonBondTokens = (newTokens-prevTokens) - newBond 
                     if nonBondTokens < 0:
                         newBond = -1 * nonBondTokens
                         nonBondTokens = 0
@@ -171,14 +209,21 @@ class Projection:
                         newBond = 0
                     newInvestorTVT += int((self.percentage * nonBondTokens)/100)
                     newInvestorPerc = newInvestorTVT/newTokens
+                # If # of TVT goes down, then we have nothing to do but release new Bonds
+                # Currently, assumed TVT decrease is coming from someone other than investor
+                # Also, bond is converted at a 1:1 ratio, in reality bondholders would want a return
                 else:
-                    newBond += (tokens - newTokens)
-                
+                    newBond += (prevTokens - newTokens)
+
+            # Calculate investor return based off total selloff of TVT, current holdings of TVT, and any share selloffs they did    
             newInvestorReturn = (totalSelloff + newInvestorTVT * newPrice) + self.investorShareReturn
             newInvestorPercReturn = (newInvestorReturn-self.investment)/self.investment
-            dailyList.append([userList[x], newPrice, newEcon, newTokens, newInvestorTVT, newInvestorPerc, newInvestorSelloff, newInvestorReturn, newInvestorPercReturn, newBond])
-
+            dailyList.append([userList[x], newPrice, newEcon, newTokens, newInvestorTVT, newInvestorPerc, newInvestorSelloff, 
+                newInvestorReturn, newInvestorPercReturn, newBond])
+        
+        # Get rid of starting row in list of data
         del dailyList[0]
+        # Update DataFrame and TXT file with new information
         df2 = pandas.DataFrame(dailyList, columns=self.fieldNames)
         self.df = self.df.append(df2, ignore_index=True, sort=False)
         self.df.to_csv(self.txtName, index=False)
