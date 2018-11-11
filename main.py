@@ -9,6 +9,7 @@ class Projection:
     def __init__(self, investment, percentage, txtName):
         self.investment = investment
         self.percentage = percentage
+        self.investorReturn = 0
         self.txtName = txtName
         self.fieldNames = ['Users', 'Price', 'Economy', 'TVTNum', 'InvestorTVT', 'InvestorPerc', 'InvestorSell', 'InvestorReturn', 'InvestorPercReturn', 'Bond']
         self.bondTotal = 0
@@ -48,6 +49,15 @@ class Projection:
                 w.writelines(lines)
                 w.close()
 
+    def changeShareOwnership(self, percentChange, investmentChange):
+        if self.percentage + percentChange > 0 and self.percentage + percentChange < 100:
+            self.percentage += percentChange
+            if percentChange < 0:
+                self.investorReturn += investmentChange
+            else:
+                self.investment += investmentChange
+
+
     def add30Days(self, dailyEconomyFluctuation, growthRate):
         startingInfo = self.df.values[-1].tolist()
         totalSelloff = self.df['InvestorSell'].sum()
@@ -70,7 +80,7 @@ class Projection:
                 sign = random.randint(1,100)
                 if sign < 15 and users < 1000000:
                     sign = -1
-                elif sign < 50 and users > 1000000:
+                elif sign < 45 and users > 1000000:
                     sign = -1
                 else:
                     sign = 1
@@ -102,7 +112,7 @@ class Projection:
             # We now then can estimate how much free flowing TVT needs to exist
             # If there currently is a lot held by our "banks", they will have to release
             newInvestorTVT = investorTokens*99/100
-            newInvestorPerc = currentInfo[4]*99/100
+            newInvestorPerc = currentInfo[5]*99/100
             newInvestorSelloff = (investorTokens - newInvestorTVT)*newPrice*0.95
             totalSelloff += newInvestorSelloff
             if x == 30:
@@ -121,6 +131,7 @@ class Projection:
                     newBond += (tokens - newTokens)
                 
             newInvestorReturn = totalSelloff + newInvestorTVT * newPrice
+            self.investorReturn = newInvestorReturn
             newInvestorPercReturn = (newInvestorReturn-self.investment)/self.investment
             dailyList.append([userList[x], newPrice, newEcon, newTokens, newInvestorTVT, newInvestorPerc, newInvestorSelloff, newInvestorReturn, newInvestorPercReturn, newBond])
 
