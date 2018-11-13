@@ -30,7 +30,7 @@ class Projection:
         self.percentage = _percentage
         self.investorShareReturn = 0
         self.txtName = _txtName
-        self.fieldNames = ['Users', 'Price', 'Economy', 'TVTNum', 'InvestorTVT', 
+        self.fieldNames = ['Users', 'Price', 'Economy', 'TVTNum', 'InvestorTVT',
             'InvestorPerc', 'InvestorSell', 'InvestorReturn', 'InvestorPercReturn', 'Bond']
         self.bondTotal = 0
 
@@ -42,7 +42,7 @@ class Projection:
         else:
             init = [[10000, 0.007, 270000000, 38000000000, 0, 0, 0, 0, -1, 0]]
             self.df = pandas.DataFrame(init, columns=self.fieldNames)
-            self.df.to_csv(txtName, index=False)
+            self.df.to_csv(self.txtName, index=False)
 
     # Gather a snapshot of our txt file info and save it as a DataFrame
     def projectionSnapshot(self):
@@ -58,13 +58,13 @@ class Projection:
     # Add an n number of 30 day increments to our data
     # @Param _dailyEconomicFluctuation - Factor of how much the economy can move from the standard growth
     # @Param _growthRate - Increment/Decrement function of Users within the 30 days
-    # Can be expressed either with your own math function (expressed as function of x in string format), 
+    # Can be expressed either with your own math function (expressed as function of x in string format),
     # or use the built in method (input 0 is built in)
-    # @Param _numberOfIncrements - Number of 30 day iterations 
+    # @Param _numberOfIncrements - Number of 30 day iterations
     def addSections(self, _dailyEconomyFluctuation, _growthRate, _numberOfIncrements):
         for x in range(0, _numberOfIncrements):
             self.add30Days(_dailyEconomyFluctuation, _growthRate)
-    
+
     # Lets you delete an n number of 30 day increments from the data
     # @Param _numberOfIncrements - Number of 30 day increments you want to delete
     def deleteSections(self, _numberOfIncrements):
@@ -84,7 +84,7 @@ class Projection:
 
     # Allows you to change the percent ownership of shares you have
     # @Param _percentChange - Addition/subtraction from your total TVT ownership percentage
-    # Expressed as a value (-100 to 100). 
+    # Expressed as a value (-100 to 100).
     # @Param _investmentChange - Money either payed or recieved for the change in % ownership
     def changeShareOwnership(self, _percentChange, _investmentChange):
         # check that we are staying within the bounds of allowable percentages
@@ -124,7 +124,7 @@ class Projection:
                 #   low = a percentage of "users" that gets closer to "users" value as "users" increases
                 #   - Assigns a random exponent between 1 and 3 - exp
                 #   - Computes a sign (-1 or 1) based on a random number between 1 and 100 - sign
-                #   - Calculates newUsers by adding previous "users" to 
+                #   - Calculates newUsers by adding previous "users" to
                 #   sign * "users" * (1 - (users/div))^exp)
                 if users < 100000:
                     low = int(users*975/1000)
@@ -149,7 +149,7 @@ class Projection:
                 newUsers = users + sign*(int(users * (((users/div)**exp)-1)))
                 userList.append(newUsers)
         else:
-            # Calculation if you enter your own growth rate. 
+            # Calculation if you enter your own growth rate.
             # Always should be in terms of x, inputted as a string
             fn = Expression(_growthRate,["x"])
             for z in range(0,30):
@@ -178,7 +178,7 @@ class Projection:
                 newEcon = (userList[x] * 27000) + (random.randint(-1* _dailyEconomyFluctuation-5, _dailyEconomyFluctuation)*(userList[x] * 27000))/100
             else:
                 newEcon = (userList[x] * 26000) + (random.randint(-1* _dailyEconomyFluctuation-7, _dailyEconomyFluctuation)*(userList[x] * 27000))/100
-            
+
             # TVT price is simply newEcon divided by total TVT outstanding
             newPrice = newEcon/prevTokens
 
@@ -201,7 +201,7 @@ class Projection:
                 # First, all outstanding bonds need to be payed off,
                 # Then any new TVT left over is spread out to TVT shareholders
                 if newTokens > prevTokens:
-                    nonBondTokens = (newTokens-prevTokens) - newBond 
+                    nonBondTokens = (newTokens-prevTokens) - newBond
                     if nonBondTokens < 0:
                         newBond = -1 * nonBondTokens
                         nonBondTokens = 0
@@ -215,12 +215,12 @@ class Projection:
                 else:
                     newBond += (prevTokens - newTokens)
 
-            # Calculate investor return based off total selloff of TVT, current holdings of TVT, and any share selloffs they did    
+            # Calculate investor return based off total selloff of TVT, current holdings of TVT, and any share selloffs they did
             newInvestorReturn = (totalSelloff + newInvestorTVT * newPrice) + self.investorShareReturn
             newInvestorPercReturn = (newInvestorReturn-self.investment)/self.investment
-            dailyList.append([userList[x], newPrice, newEcon, newTokens, newInvestorTVT, newInvestorPerc, newInvestorSelloff, 
+            dailyList.append([userList[x], newPrice, newEcon, newTokens, newInvestorTVT, newInvestorPerc, newInvestorSelloff,
                 newInvestorReturn, newInvestorPercReturn, newBond])
-        
+
         # Get rid of starting row in list of data
         del dailyList[0]
         # Update DataFrame and TXT file with new information

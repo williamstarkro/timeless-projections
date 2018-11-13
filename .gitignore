@@ -1,1 +1,5 @@
 .DS_Store
+out.csv
+__pycache__
+.ipynb_checkpoints
+env
